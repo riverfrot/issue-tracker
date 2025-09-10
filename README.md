@@ -1,4 +1,4 @@
-# Copilot Workspace PoC (with LangGraph & Kafka)
+# Issue Tracker PoC (with LangGraph)
 
 ## Purpose
 
