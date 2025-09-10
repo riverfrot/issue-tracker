@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dataflow-server
+  labels:
+    app: dataflow-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dataflow-server
+  template:
+    metadata:
+      labels:
+        app: dataflow-server
+    spec:
+      containers:
+      - name: dataflow-server
+        image: springcloud/spring-cloud-dataflow-server:2.11.2
+        ports:
+        - containerPort: 9393
+        env:
+        - name: SPRING_CLOUD_DATAFLOW_APPLICATIONPROPERTIES_STREAM_SPRING_DATASOURCE_URL
+          value: "jdbc:mariadb://mariadb-service:3306/dataflow"
+        - name: SPRING_CLOUD_DATAFLOW_APPLICATIONPROPERTIES_STREAM_SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: SPRING_CLOUD_DATAFLOW_APPLICATIONPROPERTIES_STREAM_SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        - name: SPRING_CLOUD_DATAFLOW_APPLICATIONPROPERTIES_STREAM_SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: "org.mariadb.jdbc.Driver"
+        - name: SPRING_CLOUD_SKIPPER_CLIENT_SERVER_URI
+          value: "http://skipper-server-service:7577/api"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /management/health
+            port: 9393
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /management/health
+            port: 9393
+          initialDelaySeconds: 120
+          periodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataflow-server-service
+spec:
+  selector:
+    app: dataflow-server
+  ports:
+  - protocol: TCP
+    port: 9393
+    targetPort: 9393
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skipper-server
+  labels:
+    app: skipper-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skipper-server
+  template:
+    metadata:
+      labels:
+        app: skipper-server
+    spec:
+      containers:
+      - name: skipper-server
+        image: springcloud/spring-cloud-skipper-server:2.11.1
+        ports:
+        - containerPort: 7577
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mariadb://mariadb-service:3306/dataflow"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: "org.mariadb.jdbc.Driver"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "300m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skipper-server-service
+spec:
+  selector:
+    app: skipper-server
+  ports:
+  - protocol: TCP
+    port: 7577
+    targetPort: 7577
+  type: ClusterIP

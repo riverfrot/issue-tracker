@@ -1,0 +1,70 @@
+# Gradle
+.gradle/
+gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Log files
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Docker
+.env
+docker-compose.override.yml
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# H2 Database files
+*.db
+*.trace.db
+*.lock.db
+
+# Application specific
+application-*.properties
+application-*.yml
+!application.yml
+!application.properties
+
+# Monitoring data
+monitoring/data/
+
+# Python (for LangGraph worker)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.env

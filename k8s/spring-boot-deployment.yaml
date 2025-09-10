@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: issue-tracker-backend
+  labels:
+    app: issue-tracker-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: issue-tracker-backend
+  template:
+    metadata:
+      labels:
+        app: issue-tracker-backend
+    spec:
+      containers:
+      - name: issue-tracker-backend
+        image: issue-tracker-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-service:9092"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mariadb://mariadb-service:3306/dataflow"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        - name: MANAGEMENT_OTLP_TRACING_ENDPOINT
+          value: "http://jaeger-service:4318/v1/traces"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: issue-tracker-backend-service
+spec:
+  selector:
+    app: issue-tracker-backend
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+data:
+  username: c3ByaW5n  # base64 encoded 'spring'
+  password: c3ByaW5n  # base64 encoded 'spring'

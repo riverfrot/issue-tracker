@@ -16,26 +16,67 @@
 
 ## Architecture
 
-```markdown
-## Architecture (ASCII)
+```mermaid
+graph TD
+    A[GitHub Issue] --> B[LangGraph Orchestration]
+    B --> C[Analyze Issue]
+    B --> D[Generate Code Fix]
+    B --> E[Create PR Draft]
+    
+    E --> F{Retry Logic<br/>3회}
+    F -->|Success| G[PR Created]
+    F -->|Failure| H[Kafka DLQ]
+    
+    H --> I[HITL Dashboard]
+    I --> J[Manual Review]
+    
+    J -->|Approved| K[PR Merge]
+    J -->|Rejected| L[Issue Reopen]
+    
+    K --> M[CI/CD Deploy]
+    
+    N[Observability]
+    N --> O[OpenTelemetry<br/>Trace/Log]
+    N --> P[Grafana Dashboard<br/>Metrics]
+```
 
-[ GitHub Issue ]
-       |
-       v
-[ LangGraph Orchestration ]
-   ├─ Analyze Issue
-   ├─ Generate Code Fix
-   └─ Create PR Draft
-       |
-       v
-[ Retry Logic (3회) ] ---> [ Kafka DLQ ] ---> [ HITL Dashboard ]
-       |                          |
-       |                          v
-       |                      Manual Review
-       v
-[ Approved? ] --Yes--> [ PR Merge → CI/CD → Deploy ]
-             --No----> [ Issue Reopen ]
+## Quickstart
 
-[ Observability ]
-   ├─ OpenTelemetry (Trace/Log)
-   └─ Grafana Dashboard (Metrics)
+### 1. Clone & Setup
+
+git clone https://github.com/riverfrot/issue-tracker.git
+cd issue-tracker
+
+### 2. Start Infrastructure
+docker compose up -d
+Kafka → localhost:9092
+
+SCDF Dashboard → http://localhost:9393/dashboard
+
+Grafana → http://localhost:3000
+
+### 3. Register & Deploy Stream in SCDF
+dataflow shell
+dataflow:>stream create --name workflowStream \
+  --definition "trigger-topic: kafka --destination=workflow-events | processor: workflow-processor | sink: kafka --destination=workflow-processed"
+
+dataflow:>stream deploy workflowStream
+
+### 4. Run Backend (Spring Boot, Kotlin)
+./gradlew bootRun
+/trigger API 호출 → Kafka workflow-events 토픽에 메시지 publish
+
+SCDF가 workflow-processor 스트림에서 변환 후 workflow-processed 토픽에 전달
+
+### 5. Run LangGraph Worker (Python)
+cd langflow
+python example_flow.py
+workflow-events 구독
+
+처리 실패 시 DLQ 토픽으로 메시지 이동
+
+### 6. Check DLQ
+docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic dlq \
+  --from-beginning
